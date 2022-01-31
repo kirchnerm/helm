@@ -68,7 +68,7 @@ const (
 	// NotesName is the name of the example NOTES.txt file.
 	NotesName = TemplatesDir + sep + "NOTES.txt"
 	// HelpersName is the name of the example helpers file.
-	HelpersName = TemplatesDir + sep + "_helpers.tpl"
+	HelpersName = TemplatesDir + sep + "_" + defaultModule + "_helpers.tpl"
 	// TestConnectionName is the name of the example test file.
 	TestConnectionName = TemplatesTestsDir + sep + defaultModule + "_test-connection.yaml"
 )
@@ -109,7 +109,7 @@ const defaultValues = `# Default values for %s.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-module:
+main:
   replicaCount: 1
 
   image:
@@ -216,7 +216,7 @@ const defaultIgnore = `# Patterns to ignore when building packages.
 `
 
 const defaultIngress = `{{- if .Values.<MODULE_NAME>.ingress.enabled -}}
-{{- $fullName := include "<CHARTNAME>.fullname" . -}}
+{{- $fullName := include "<MODULE_NAME>.fullname" . -}}
 {{- $svcPort := .Values.<MODULE_NAME>.service.port -}}
 {{- if and .Values.<MODULE_NAME>.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
   {{- if not (hasKey .Values.<MODULE_NAME>.ingress.annotations "kubernetes.io/ingress.class") }}
@@ -234,7 +234,7 @@ kind: Ingress
 metadata:
   name: {{ $fullName }}
   labels:
-    {{- include "<CHARTNAME>.labels" . | nindent 4 }}
+    {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
   {{- with .Values.<MODULE_NAME>.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -281,40 +281,40 @@ spec:
 const defaultDeployment = `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "<CHARTNAME>.fullname" . }}-<MODULE_NAME>
+  name: {{ include "<MODULE_NAME>.fullname" . }}-<MODULE_NAME>
   labels:
-    {{- include "<CHARTNAME>.labels" . | nindent 4 }}
+    {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.<MODULE_NAME>.deployment.autoscaling.enabled }}
-  replicas: {{ .Values.<MODULE_NAME>.deployment.replicaCount }}
+  {{- if not .Values.<MODULE_NAME>.autoscaling.enabled }}
+  replicas: {{ .Values.<MODULE_NAME>.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}-<MODULE_NAME>
+      app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}-<MODULE_NAME>
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
-      {{- with .Values.<MODULE_NAME>.deployment.podAnnotations }}
+      {{- with .Values.<MODULE_NAME>.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}-<MODULE_NAME>
+        app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}-<MODULE_NAME>
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      {{- with .Values.<MODULE_NAME>.deployment.imagePullSecrets }}
+      {{- with .Values.<MODULE_NAME>.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "<CHARTNAME>.serviceAccountName" . }}
+      serviceAccountName: {{ include "<MODULE_NAME>.serviceAccountName" . }}
       securityContext:
-        {{- toYaml .Values.<MODULE_NAME>.deployment.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.<MODULE_NAME>.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
-            {{- toYaml .Values.<MODULE_NAME>.deployment.securityContext | nindent 12 }}
-          image: "{{ .Values.<MODULE_NAME>.deployment.image.repository }}:{{ .Values.<MODULE_NAME>.deployment.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.<MODULE_NAME>.deployment.image.pullPolicy }}
+            {{- toYaml .Values.<MODULE_NAME>.securityContext | nindent 12 }}
+          image: "{{ .Values.<MODULE_NAME>.image.repository }}:{{ .Values.<MODULE_NAME>.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.<MODULE_NAME>.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 80
@@ -328,16 +328,16 @@ spec:
               path: /
               port: http
           resources:
-            {{- toYaml .Values.<MODULE_NAME>.deployment.resources | nindent 12 }}
-      {{- with .Values.<MODULE_NAME>.deployment.nodeSelector }}
+            {{- toYaml .Values.<MODULE_NAME>.resources | nindent 12 }}
+      {{- with .Values.<MODULE_NAME>.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.<MODULE_NAME>.deployment.affinity }}
+      {{- with .Values.<MODULE_NAME>.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.<MODULE_NAME>.deployment.tolerations }}
+      {{- with .Values.<MODULE_NAME>.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -346,18 +346,18 @@ spec:
 const defaultService = `apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "<CHARTNAME>.fullname" . }}-<MODULE_NAME>
+  name: {{ include "<MODULE_NAME>.fullname" . }}-<MODULE_NAME>
   labels:
-    {{- include "<CHARTNAME>.labels" . | nindent 4 }}
+    {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.<MODULE_NAME>.service.type }}
   ports:
     - port: {{ .Values.<MODULE_NAME>.service.port }}
       targetPort: http
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}-<MODULE_NAME>
+    app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}-<MODULE_NAME>
     app.kubernetes.io/instance: {{ .Release.Name }}
 `
 
@@ -365,9 +365,9 @@ const defaultServiceAccount = `{{- if .Values.<MODULE_NAME>.serviceAccount.creat
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "<CHARTNAME>.serviceAccountName" . }}
+  name: {{ include "<MODULE_NAME>.serviceAccountName" . }}
   labels:
-    {{- include "<CHARTNAME>.labels" . | nindent 4 }}
+    {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
   {{- with .Values.<MODULE_NAME>.serviceAccount.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -379,14 +379,14 @@ const defaultHorizontalPodAutoscaler = `{{- if .Values.<MODULE_NAME>.autoscaling
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "<CHARTNAME>.fullname" . }}-<MODULE_NAME>
+  name: {{ include "<MODULE_NAME>.fullname" . }}-<MODULE_NAME>
   labels:
-    {{- include "<CHARTNAME>.labels" . | nindent 4 }}
+    {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "<CHARTNAME>.fullname" . }}
+    name: {{ include "<MODULE_NAME>.fullname" . }}
   minReplicas: {{ .Values.<MODULE_NAME>.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.<MODULE_NAME>.autoscaling.maxReplicas }}
   metrics:
@@ -406,23 +406,23 @@ spec:
 `
 
 const defaultNotes = `1. Get the application URL by running these commands:
-{{- if .Values.ingress.enabled }}
-{{- range $host := .Values.ingress.hosts }}
+{{- if .Values.<MODULE_NAME>.ingress.enabled }}
+{{- range $host := .Values.<MODULE_NAME>.ingress.hosts }}
   {{- range .paths }}
-  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  http{{ if $.Values.<MODULE_NAME>.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
   {{- end }}
 {{- end }}
-{{- else if contains "NodePort" .Values.service.type }}
-  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "<CHARTNAME>.fullname" . }})
+{{- else if contains "NodePort" .Values.<MODULE_NAME>.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "<MODULE_NAME>.fullname" . }})
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
   echo http://$NODE_IP:$NODE_PORT
-{{- else if contains "LoadBalancer" .Values.service.type }}
+{{- else if contains "LoadBalancer" .Values.<MODULE_NAME>.service.type }}
      NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "<CHARTNAME>.fullname" . }}'
-  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "<CHARTNAME>.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
-  echo http://$SERVICE_IP:{{ .Values.service.port }}
-{{- else if contains "ClusterIP" .Values.service.type }}
-  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "<CHARTNAME>.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "<MODULE_NAME>.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "<MODULE_NAME>.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.<MODULE_NAME>.service.port }}
+{{- else if contains "ClusterIP" .Values.<MODULE_NAME>.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "<MODULE_NAME>.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
   export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
@@ -432,7 +432,7 @@ const defaultNotes = `1. Get the application URL by running these commands:
 const defaultHelpers = `{{/*
 Expand the name of the chart.
 */}}
-{{- define "<CHARTNAME>.name" -}}
+{{- define "<MODULE_NAME>.name" -}}
 {{- default .Chart.Name .Values.<MODULE_NAME>.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -441,7 +441,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "<CHARTNAME>.fullname" -}}
+{{- define "<MODULE_NAME>.fullname" -}}
 {{- if .Values.<MODULE_NAME>.fullnameOverride }}
 {{- .Values.<MODULE_NAME>.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -457,16 +457,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "<CHARTNAME>.chart" -}}
+{{- define "<MODULE_NAME>.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "<CHARTNAME>.labels" -}}
-helm.sh/chart: {{ include "<CHARTNAME>.chart" . }}
-{{ include "<CHARTNAME>.selectorLabels" . }}
+{{- define "<MODULE_NAME>.labels" -}}
+helm.sh/chart: {{ include "<MODULE_NAME>.chart" . }}
+{{ include "<MODULE_NAME>.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -476,17 +476,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "<CHARTNAME>.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}
+{{- define "<MODULE_NAME>.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "<CHARTNAME>.serviceAccountName" -}}
+{{- define "<MODULE_NAME>.serviceAccountName" -}}
 {{- if .Values.<MODULE_NAME>.serviceAccount.create }}
-{{- default (include "<CHARTNAME>.fullname" .) .Values.<MODULE_NAME>.serviceAccount.name }}
+{{- default (include "<MODULE_NAME>.fullname" .) .Values.<MODULE_NAME>.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.<MODULE_NAME>.serviceAccount.name }}
 {{- end }}
@@ -496,9 +496,9 @@ Create the name of the service account to use
 const defaultTestConnection = `apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "<CHARTNAME>.fullname" . }}-test-connection"
+  name: "{{ include "<MODULE_NAME>.fullname" . }}-test-connection"
   labels:
-    {{- include "<CHARTNAME>.labels" . | nindent 4 }}
+    {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
@@ -506,7 +506,7 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "<CHARTNAME>.fullname" . }}:{{ .Values.<MODULE_NAME>.service.port }}']
+      args: ['{{ include "<MODULE_NAME>.fullname" . }}:{{ .Values.<MODULE_NAME>.service.port }}']
   restartPolicy: Never
 `
 
@@ -674,7 +674,7 @@ func Create(name, dir string) (string, error) {
 // transform performs a string replacement of the specified source for
 // a given key with the replacement string
 func transform(src, chartname string, module string) []byte {
-	return []byte(strings.ReplaceAll(strings.ReplaceAll(src, "<MODULE_NAME>", module), "<CHARTNAME>", chartname))
+	return []byte(strings.ReplaceAll(strings.ReplaceAll(src, "<MODULE_NAME>", module), "<MODULE_NAME>", chartname))
 }
 
 func writeFile(name string, content []byte) error {
