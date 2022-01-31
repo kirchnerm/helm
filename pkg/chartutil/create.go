@@ -109,7 +109,7 @@ const defaultValues = `# Default values for %s.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-main:
+<MODULE_NAME>:
   replicaCount: 1
 
   image:
@@ -528,7 +528,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	var updatedTemplates []*chart.File
 
 	for _, template := range schart.Templates {
-		newData := transform(string(template.Data), schart.Name(), "module")
+		newData := transform(string(template.Data), schart.Name(), "main")
 		updatedTemplates = append(updatedTemplates, &chart.File{Name: template.Name, Data: newData})
 	}
 
@@ -539,7 +539,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	}
 
 	var m map[string]interface{}
-	if err := yaml.Unmarshal(transform(string(b), schart.Name(), "module"), &m); err != nil {
+	if err := yaml.Unmarshal(transform(string(b), schart.Name(), "main"), &m); err != nil {
 		return errors.Wrap(err, "transforming values file")
 	}
 	schart.Values = m
@@ -549,7 +549,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	// needs to be replaced on that file.
 	for _, f := range schart.Raw {
 		if f.Name == ValuesfileName {
-			f.Data = transform(string(f.Data), schart.Name(), "module")
+			f.Data = transform(string(f.Data), schart.Name(), "main")
 		}
 	}
 
@@ -606,7 +606,7 @@ func Create(name, dir string) (string, error) {
 		{
 			// values.yaml
 			path:    filepath.Join(cdir, ValuesfileName),
-			content: []byte(fmt.Sprintf(defaultValues, name)),
+			content: transform(defaultValues, name, module),
 		},
 		{
 			// .helmignore
@@ -674,7 +674,7 @@ func Create(name, dir string) (string, error) {
 // transform performs a string replacement of the specified source for
 // a given key with the replacement string
 func transform(src, chartname string, module string) []byte {
-	return []byte(strings.ReplaceAll(strings.ReplaceAll(src, "<MODULE_NAME>", module), "<MODULE_NAME>", chartname))
+	return []byte(strings.ReplaceAll(src, "<MODULE_NAME>", module))
 }
 
 func writeFile(name string, content []byte) error {
