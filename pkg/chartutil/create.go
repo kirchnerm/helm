@@ -38,6 +38,8 @@ import (
 // problematic.
 var chartName = regexp.MustCompile("^[a-zA-Z0-9._-]+$")
 
+const defaultModule = "main"
+
 const (
 	// ChartfileName is the default Chart file name.
 	ChartfileName = "Chart.yaml"
@@ -54,21 +56,21 @@ const (
 	// IgnorefileName is the name of the Helm ignore file.
 	IgnorefileName = ".helmignore"
 	// IngressFileName is the name of the example ingress file.
-	IngressFileName = TemplatesDir + sep + "ingress.yaml"
+	IngressFileName = TemplatesDir + sep + defaultModule + "_ingress.yaml"
 	// DeploymentName is the name of the example deployment file.
-	DeploymentName = TemplatesDir + sep + "deployment.yaml"
+	DeploymentName = TemplatesDir + sep + defaultModule + "_deployment.yaml"
 	// ServiceName is the name of the example service file.
-	ServiceName = TemplatesDir + sep + "service.yaml"
+	ServiceName = TemplatesDir + sep + defaultModule + "_service.yaml"
 	// ServiceAccountName is the name of the example serviceaccount file.
-	ServiceAccountName = TemplatesDir + sep + "serviceaccount.yaml"
+	ServiceAccountName = TemplatesDir + sep + defaultModule + "_serviceaccount.yaml"
 	// HorizontalPodAutoscalerName is the name of the example hpa file.
-	HorizontalPodAutoscalerName = TemplatesDir + sep + "hpa.yaml"
+	HorizontalPodAutoscalerName = TemplatesDir + sep + defaultModule + "_hpa.yaml"
 	// NotesName is the name of the example NOTES.txt file.
 	NotesName = TemplatesDir + sep + "NOTES.txt"
 	// HelpersName is the name of the example helpers file.
 	HelpersName = TemplatesDir + sep + "_helpers.tpl"
 	// TestConnectionName is the name of the example test file.
-	TestConnectionName = TemplatesTestsDir + sep + "test-connection.yaml"
+	TestConnectionName = TemplatesTestsDir + sep + defaultModule + "_test-connection.yaml"
 )
 
 // maxChartNameLength is lower than the limits we know of with certain file systems,
@@ -107,84 +109,85 @@ const defaultValues = `# Default values for %s.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-replicaCount: 1
+module:
+  replicaCount: 1
 
-image:
-  repository: nginx
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  image:
+    repository: nginx
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
 
-imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
 
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+    # Annotations to add to the service account
+    annotations: {}
+    # The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name: ""
 
-podAnnotations: {}
+  podAnnotations: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+  podSecurityContext: {}
+    # fsGroup: 2000
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+  securityContext: {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
 
-service:
-  type: ClusterIP
-  port: 80
+  service:
+    type: ClusterIP
+    port: 80
 
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  resources: {}
+    # We usually recommend not to specify default resources and to leave this as a conscious
+    # choice for the user. This also increases chances charts run on environments with little
+    # resources, such as Minikube. If you do want to specify resources, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
 
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
 
-nodeSelector: {}
+  nodeSelector: {}
 
-tolerations: []
+  tolerations: []
 
-affinity: {}
+  affinity: {}
 `
 
 const defaultIgnore = `# Patterns to ignore when building packages.
@@ -212,12 +215,12 @@ const defaultIgnore = `# Patterns to ignore when building packages.
 .vscode/
 `
 
-const defaultIngress = `{{- if .Values.ingress.enabled -}}
+const defaultIngress = `{{- if .Values.<MODULE_NAME>.ingress.enabled -}}
 {{- $fullName := include "<CHARTNAME>.fullname" . -}}
-{{- $svcPort := .Values.service.port -}}
-{{- if and .Values.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
-  {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
-  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
+{{- $svcPort := .Values.<MODULE_NAME>.service.port -}}
+{{- if and .Values.<MODULE_NAME>.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.<MODULE_NAME>.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.<MODULE_NAME>.ingress.annotations "kubernetes.io/ingress.class" .Values.<MODULE_NAME>.ingress.className}}
   {{- end }}
 {{- end }}
 {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
@@ -232,17 +235,17 @@ metadata:
   name: {{ $fullName }}
   labels:
     {{- include "<CHARTNAME>.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- with .Values.<MODULE_NAME>.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.ingress.className }}
+  {{- if and .Values.<MODULE_NAME>.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.<MODULE_NAME>.ingress.className }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if .Values.<MODULE_NAME>.ingress.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
+    {{- range .Values.<MODULE_NAME>.ingress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -251,7 +254,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .Values.<MODULE_NAME>.ingress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
@@ -263,11 +266,11 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ $fullName }}
+                name: {{ $fullName }}-<MODULE_NAME>
                 port:
                   number: {{ $svcPort }}
               {{- else }}
-              serviceName: {{ $fullName }}
+              serviceName: {{ $fullName }}-<MODULE_NAME>
               servicePort: {{ $svcPort }}
               {{- end }}
           {{- end }}
@@ -278,38 +281,40 @@ spec:
 const defaultDeployment = `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "<CHARTNAME>.fullname" . }}
+  name: {{ include "<CHARTNAME>.fullname" . }}-<MODULE_NAME>
   labels:
     {{- include "<CHARTNAME>.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
+  {{- if not .Values.<MODULE_NAME>.deployment.autoscaling.enabled }}
+  replicas: {{ .Values.<MODULE_NAME>.deployment.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "<CHARTNAME>.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}-<MODULE_NAME>
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      {{- with .Values.<MODULE_NAME>.deployment.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "<CHARTNAME>.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}-<MODULE_NAME>
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with .Values.<MODULE_NAME>.deployment.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "<CHARTNAME>.serviceAccountName" . }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.<MODULE_NAME>.deployment.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+            {{- toYaml .Values.<MODULE_NAME>.deployment.securityContext | nindent 12 }}
+          image: "{{ .Values.<MODULE_NAME>.deployment.image.repository }}:{{ .Values.<MODULE_NAME>.deployment.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.<MODULE_NAME>.deployment.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 80
@@ -323,16 +328,16 @@ spec:
               path: /
               port: http
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-      {{- with .Values.nodeSelector }}
+            {{- toYaml .Values.<MODULE_NAME>.deployment.resources | nindent 12 }}
+      {{- with .Values.<MODULE_NAME>.deployment.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with .Values.<MODULE_NAME>.deployment.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.<MODULE_NAME>.deployment.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -341,39 +346,40 @@ spec:
 const defaultService = `apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "<CHARTNAME>.fullname" . }}
+  name: {{ include "<CHARTNAME>.fullname" . }}-<MODULE_NAME>
   labels:
     {{- include "<CHARTNAME>.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
+    - port: {{ .Values.<MODULE_NAME>.service.port }}
       targetPort: http
       protocol: TCP
       name: http
   selector:
-    {{- include "<CHARTNAME>.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "<CHARTNAME>.name" . }}-<MODULE_NAME>
+    app.kubernetes.io/instance: {{ .Release.Name }}
 `
 
-const defaultServiceAccount = `{{- if .Values.serviceAccount.create -}}
+const defaultServiceAccount = `{{- if .Values.<MODULE_NAME>.serviceAccount.create -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ include "<CHARTNAME>.serviceAccountName" . }}
   labels:
     {{- include "<CHARTNAME>.labels" . | nindent 4 }}
-  {{- with .Values.serviceAccount.annotations }}
+  {{- with .Values.<MODULE_NAME>.serviceAccount.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 {{- end }}
 `
 
-const defaultHorizontalPodAutoscaler = `{{- if .Values.autoscaling.enabled }}
+const defaultHorizontalPodAutoscaler = `{{- if .Values.<MODULE_NAME>.autoscaling.enabled }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "<CHARTNAME>.fullname" . }}
+  name: {{ include "<CHARTNAME>.fullname" . }}-<MODULE_NAME>
   labels:
     {{- include "<CHARTNAME>.labels" . | nindent 4 }}
 spec:
@@ -381,20 +387,20 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ include "<CHARTNAME>.fullname" . }}
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  minReplicas: {{ .Values.<MODULE_NAME>.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.<MODULE_NAME>.autoscaling.maxReplicas }}
   metrics:
-    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- if .Values.<MODULE_NAME>.autoscaling.targetCPUUtilizationPercentage }}
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+        targetAverageUtilization: {{ .Values.<MODULE_NAME>.autoscaling.targetCPUUtilizationPercentage }}
     {{- end }}
-    {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- if .Values.<MODULE_NAME>.autoscaling.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
-        targetAverageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+        targetAverageUtilization: {{ .Values.<MODULE_NAME>.autoscaling.targetMemoryUtilizationPercentage }}
     {{- end }}
 {{- end }}
 `
@@ -427,7 +433,7 @@ const defaultHelpers = `{{/*
 Expand the name of the chart.
 */}}
 {{- define "<CHARTNAME>.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- default .Chart.Name .Values.<MODULE_NAME>.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
@@ -436,10 +442,10 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 If release name contains chart name it will be used as a full name.
 */}}
 {{- define "<CHARTNAME>.fullname" -}}
-{{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- if .Values.<MODULE_NAME>.fullnameOverride }}
+{{- .Values.<MODULE_NAME>.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- $name := default .Chart.Name .Values.<MODULE_NAME>.nameOverride }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -479,10 +485,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the name of the service account to use
 */}}
 {{- define "<CHARTNAME>.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "<CHARTNAME>.fullname" .) .Values.serviceAccount.name }}
+{{- if .Values.<MODULE_NAME>.serviceAccount.create }}
+{{- default (include "<CHARTNAME>.fullname" .) .Values.<MODULE_NAME>.serviceAccount.name }}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- default "default" .Values.<MODULE_NAME>.serviceAccount.name }}
 {{- end }}
 {{- end }}
 `
@@ -500,7 +506,7 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "<CHARTNAME>.fullname" . }}:{{ .Values.service.port }}']
+      args: ['{{ include "<CHARTNAME>.fullname" . }}:{{ .Values.<MODULE_NAME>.service.port }}']
   restartPolicy: Never
 `
 
@@ -522,7 +528,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	var updatedTemplates []*chart.File
 
 	for _, template := range schart.Templates {
-		newData := transform(string(template.Data), schart.Name())
+		newData := transform(string(template.Data), schart.Name(), "module")
 		updatedTemplates = append(updatedTemplates, &chart.File{Name: template.Name, Data: newData})
 	}
 
@@ -533,7 +539,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	}
 
 	var m map[string]interface{}
-	if err := yaml.Unmarshal(transform(string(b), schart.Name()), &m); err != nil {
+	if err := yaml.Unmarshal(transform(string(b), schart.Name(), "module"), &m); err != nil {
 		return errors.Wrap(err, "transforming values file")
 	}
 	schart.Values = m
@@ -543,7 +549,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	// needs to be replaced on that file.
 	for _, f := range schart.Raw {
 		if f.Name == ValuesfileName {
-			f.Data = transform(string(f.Data), schart.Name())
+			f.Data = transform(string(f.Data), schart.Name(), "module")
 		}
 	}
 
@@ -586,6 +592,8 @@ func Create(name, dir string) (string, error) {
 		return cdir, errors.Errorf("file %s already exists and is not a directory", cdir)
 	}
 
+	var module = "main"
+
 	files := []struct {
 		path    string
 		content []byte
@@ -608,42 +616,42 @@ func Create(name, dir string) (string, error) {
 		{
 			// ingress.yaml
 			path:    filepath.Join(cdir, IngressFileName),
-			content: transform(defaultIngress, name),
+			content: transform(defaultIngress, name, module),
 		},
 		{
 			// deployment.yaml
 			path:    filepath.Join(cdir, DeploymentName),
-			content: transform(defaultDeployment, name),
+			content: transform(defaultDeployment, name, module),
 		},
 		{
 			// service.yaml
 			path:    filepath.Join(cdir, ServiceName),
-			content: transform(defaultService, name),
+			content: transform(defaultService, name, module),
 		},
 		{
 			// serviceaccount.yaml
 			path:    filepath.Join(cdir, ServiceAccountName),
-			content: transform(defaultServiceAccount, name),
+			content: transform(defaultServiceAccount, name, module),
 		},
 		{
 			// hpa.yaml
 			path:    filepath.Join(cdir, HorizontalPodAutoscalerName),
-			content: transform(defaultHorizontalPodAutoscaler, name),
+			content: transform(defaultHorizontalPodAutoscaler, name, module),
 		},
 		{
 			// NOTES.txt
 			path:    filepath.Join(cdir, NotesName),
-			content: transform(defaultNotes, name),
+			content: transform(defaultNotes, name, module),
 		},
 		{
 			// _helpers.tpl
 			path:    filepath.Join(cdir, HelpersName),
-			content: transform(defaultHelpers, name),
+			content: transform(defaultHelpers, name, module),
 		},
 		{
 			// test-connection.yaml
 			path:    filepath.Join(cdir, TestConnectionName),
-			content: transform(defaultTestConnection, name),
+			content: transform(defaultTestConnection, name, module),
 		},
 	}
 
@@ -665,8 +673,8 @@ func Create(name, dir string) (string, error) {
 
 // transform performs a string replacement of the specified source for
 // a given key with the replacement string
-func transform(src, replacement string) []byte {
-	return []byte(strings.ReplaceAll(src, "<CHARTNAME>", replacement))
+func transform(src, chartname string, module string) []byte {
+	return []byte(strings.ReplaceAll(strings.ReplaceAll(src, "<MODULE_NAME>", module), "<CHARTNAME>", chartname))
 }
 
 func writeFile(name string, content []byte) error {
