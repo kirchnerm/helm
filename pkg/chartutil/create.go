@@ -40,6 +40,11 @@ var chartName = regexp.MustCompile("^[a-zA-Z0-9._-]+$")
 
 const moduleNameTemplate = "<MODULE>_"
 
+type ManifestFile struct {
+	path    string
+	content []byte
+}
+
 const (
 	// ChartfileName is the default Chart file name.
 	ChartfileName = "Chart.yaml"
@@ -270,11 +275,11 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ $fullName }}-<MODULE_NAME>
+                name: {{ $fullName }}
                 port:
                   number: {{ $svcPort }}
               {{- else }}
-              serviceName: {{ $fullName }}-<MODULE_NAME>
+              serviceName: {{ $fullName }}
               servicePort: {{ $svcPort }}
               {{- end }}
           {{- end }}
@@ -285,7 +290,7 @@ spec:
 const defaultDeployment = `apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "<MODULE_NAME>.fullname" . }}-<MODULE_NAME>
+  name: {{ include "<MODULE_NAME>.fullname" . }}
   labels:
     {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
 spec:
@@ -294,7 +299,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}-<MODULE_NAME>
+      app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
@@ -303,7 +308,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}-<MODULE_NAME>
+        app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       {{- with .Values.<MODULE_NAME>.imagePullSecrets }}
@@ -350,7 +355,7 @@ spec:
 const defaultService = `apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "<MODULE_NAME>.fullname" . }}-<MODULE_NAME>
+  name: {{ include "<MODULE_NAME>.fullname" . }}
   labels:
     {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
 spec:
@@ -361,7 +366,7 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}-<MODULE_NAME>
+    app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 `
 
@@ -383,7 +388,7 @@ const defaultHorizontalPodAutoscaler = `{{- if .Values.<MODULE_NAME>.autoscaling
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "<MODULE_NAME>.fullname" . }}-<MODULE_NAME>
+  name: {{ include "<MODULE_NAME>.fullname" . }}
   labels:
     {{- include "<MODULE_NAME>.labels" . | nindent 4 }}
 spec:
@@ -453,7 +458,7 @@ If release name contains chart name it will be used as a full name.
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-%s-%s" .Release.Name $name "<MODULE_NAME>" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -481,7 +486,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels
 */}}
 {{- define "<MODULE_NAME>.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}
+app.kubernetes.io/name: {{ include "<MODULE_NAME>.name" . }}-<MODULE_NAME>
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
@@ -532,7 +537,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	var updatedTemplates []*chart.File
 
 	for _, template := range schart.Templates {
-		newData := transform(string(template.Data), schart.Name(), "main")
+		newData := transform(string(template.Data), "main")
 		updatedTemplates = append(updatedTemplates, &chart.File{Name: template.Name, Data: newData})
 	}
 
@@ -543,7 +548,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	}
 
 	var m map[string]interface{}
-	if err := yaml.Unmarshal(transform(string(b), schart.Name(), "main"), &m); err != nil {
+	if err := yaml.Unmarshal(transform(string(b), "main"), &m); err != nil {
 		return errors.Wrap(err, "transforming values file")
 	}
 	schart.Values = m
@@ -553,7 +558,7 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 	// needs to be replaced on that file.
 	for _, f := range schart.Raw {
 		if f.Name == ValuesfileName {
-			f.Data = transform(string(f.Data), schart.Name(), "main")
+			f.Data = transform(string(f.Data), "main")
 		}
 	}
 
@@ -573,10 +578,10 @@ func CreateFrom(chartfile *chart.Metadata, dest, src string) error {
 // If Chart.yaml or any directories cannot be created, this will return an
 // error. In such a case, this will attempt to clean up by removing the
 // new chart directory.
-func Create(name, dir string) (string, error) {
+func Create(chartname, dir string) (string, error) {
 
 	// Sanity-check the name of a chart so user doesn't create one that causes problems.
-	if err := validateChartName(name); err != nil {
+	if err := validateChartName(chartname); err != nil {
 		return "", err
 	}
 
@@ -591,7 +596,7 @@ func Create(name, dir string) (string, error) {
 		return path, errors.Errorf("no such directory %s", path)
 	}
 
-	cdir := filepath.Join(path, name)
+	cdir := filepath.Join(path, chartname)
 	if fi, err := os.Stat(cdir); err == nil && !fi.IsDir() {
 		return cdir, errors.Errorf("file %s already exists and is not a directory", cdir)
 	}
@@ -600,23 +605,74 @@ func Create(name, dir string) (string, error) {
 
 	// if we are "inside" a helm chart we generate a module with the name from args
 	if _, err := os.Stat(ValuesfileName); err == nil {
-		module = name
-		cdir = ""
+		// create module with "chartname"
+		module = chartname
+		writeFiles(getFiles("", module))
+		appendToValuesFile(module)
+	} else {
+		// create helm chart with module main
+		writeFiles(getBasefiles(cdir, module, chartname))
+		writeFiles(getFiles(cdir, module))
+		// Need to add the ChartsDir explicitly as it does not contain any file OOTB
+		if err := os.MkdirAll(filepath.Join(cdir, ChartsDir), 0755); err != nil {
+			return cdir, err
+		}
 	}
 
-	files := []struct {
-		path    string
-		content []byte
-	}{
+	return cdir, nil
+}
+
+func getFiles(cdir string, module string) []ManifestFile {
+	return []ManifestFile{
+		{
+			// ingress.yaml
+			path:    filepath.Join(cdir, transformModuleName(IngressFileName, module)),
+			content: transform(defaultIngress, module),
+		},
+		{
+			// deployment.yaml
+			path:    filepath.Join(cdir, transformModuleName(DeploymentName, module)),
+			content: transform(defaultDeployment, module),
+		},
+		{
+			// service.yaml
+			path:    filepath.Join(cdir, transformModuleName(ServiceName, module)),
+			content: transform(defaultService, module),
+		},
+		{
+			// serviceaccount.yaml
+			path:    filepath.Join(cdir, transformModuleName(ServiceAccountName, module)),
+			content: transform(defaultServiceAccount, module),
+		},
+		{
+			// hpa.yaml
+			path:    filepath.Join(cdir, transformModuleName(HorizontalPodAutoscalerName, module)),
+			content: transform(defaultHorizontalPodAutoscaler, module),
+		},
+		{
+			// _helpers.tpl
+			path:    filepath.Join(cdir, transformModuleName(HelpersName, module)),
+			content: transform(defaultHelpers, module),
+		},
+		{
+			// test-connection.yaml
+			path:    filepath.Join(cdir, transformModuleName(TestConnectionName, module)),
+			content: transform(defaultTestConnection, module),
+		},
+	}
+}
+
+func getBasefiles(cdir string, module string, chartname string) []ManifestFile {
+	return []ManifestFile{
+		{
+			// values.yaml
+			path:    filepath.Join(cdir, ValuesfileName),
+			content: transform(defaultValues, module),
+		},
 		{
 			// Chart.yaml
 			path:    filepath.Join(cdir, ChartfileName),
-			content: []byte(fmt.Sprintf(defaultChartfile, name)),
-		},
-		{
-			// values.yaml
-			path:    filepath.Join(cdir, transformModuleName(ValuesfileName, module)),
-			content: transform(defaultValues, name, module),
+			content: []byte(fmt.Sprintf(defaultChartfile, chartname)),
 		},
 		{
 			// .helmignore
@@ -624,66 +680,40 @@ func Create(name, dir string) (string, error) {
 			content: []byte(defaultIgnore),
 		},
 		{
-			// ingress.yaml
-			path:    filepath.Join(cdir, transformModuleName(IngressFileName, module)),
-			content: transform(defaultIngress, name, module),
-		},
-		{
-			// deployment.yaml
-			path:    filepath.Join(cdir, transformModuleName(DeploymentName, module)),
-			content: transform(defaultDeployment, name, module),
-		},
-		{
-			// service.yaml
-			path:    filepath.Join(cdir, transformModuleName(ServiceName, module)),
-			content: transform(defaultService, name, module),
-		},
-		{
-			// serviceaccount.yaml
-			path:    filepath.Join(cdir, transformModuleName(ServiceAccountName, module)),
-			content: transform(defaultServiceAccount, name, module),
-		},
-		{
-			// hpa.yaml
-			path:    filepath.Join(cdir, transformModuleName(HorizontalPodAutoscalerName, module)),
-			content: transform(defaultHorizontalPodAutoscaler, name, module),
-		},
-		{
 			// NOTES.txt
 			path:    filepath.Join(cdir, transformModuleName(NotesName, module)),
-			content: transform(defaultNotes, name, module),
-		},
-		{
-			// _helpers.tpl
-			path:    filepath.Join(cdir, transformModuleName(HelpersName, module)),
-			content: transform(defaultHelpers, name, module),
-		},
-		{
-			// test-connection.yaml
-			path:    filepath.Join(cdir, transformModuleName(TestConnectionName, module)),
-			content: transform(defaultTestConnection, name, module),
+			content: transform(defaultNotes, module),
 		},
 	}
+}
 
+func writeFiles(files []ManifestFile) error {
 	for _, file := range files {
 		if _, err := os.Stat(file.path); err == nil {
 			// There is no handle to a preferred output stream here.
 			fmt.Fprintf(Stderr, "WARNING: File %q already exists. Overwriting.\n", file.path)
 		}
 		if err := writeFile(file.path, file.content); err != nil {
-			return cdir, err
+			return err
 		}
 	}
-	// Need to add the ChartsDir explicitly as it does not contain any file OOTB
-	if err := os.MkdirAll(filepath.Join(cdir, ChartsDir), 0755); err != nil {
-		return cdir, err
+	return nil
+}
+
+func appendToValuesFile(module string) {
+	f, err := os.OpenFile(ValuesfileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(Stderr, "ERROR: Opening to %q.\n", ValuesfileName)
 	}
-	return cdir, nil
+	defer f.Close()
+	if _, err := f.Write(transform(defaultValues, module)); err != nil {
+		fmt.Fprintf(Stderr, "ERROR: Writing to %q.\n", ValuesfileName)
+	}
 }
 
 // transform performs a string replacement of the specified source for
 // a given key with the replacement string
-func transform(src, chartname string, module string) []byte {
+func transform(src, module string) []byte {
 	return []byte(strings.ReplaceAll(src, "<MODULE_NAME>", module))
 }
 
