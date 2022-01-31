@@ -38,7 +38,7 @@ import (
 // problematic.
 var chartName = regexp.MustCompile("^[a-zA-Z0-9._-]+$")
 
-const defaultModule = "main"
+const moduleNameTemplate = "<MODULE>_"
 
 const (
 	// ChartfileName is the default Chart file name.
@@ -56,22 +56,26 @@ const (
 	// IgnorefileName is the name of the Helm ignore file.
 	IgnorefileName = ".helmignore"
 	// IngressFileName is the name of the example ingress file.
-	IngressFileName = TemplatesDir + sep + defaultModule + "_ingress.yaml"
+	IngressFileName = TemplatesDir + sep + moduleNameTemplate + "_ingress.yaml"
 	// DeploymentName is the name of the example deployment file.
-	DeploymentName = TemplatesDir + sep + defaultModule + "_deployment.yaml"
+	DeploymentName = TemplatesDir + sep + moduleNameTemplate + "_deployment.yaml"
 	// ServiceName is the name of the example service file.
-	ServiceName = TemplatesDir + sep + defaultModule + "_service.yaml"
+	ServiceName = TemplatesDir + sep + moduleNameTemplate + "_service.yaml"
 	// ServiceAccountName is the name of the example serviceaccount file.
-	ServiceAccountName = TemplatesDir + sep + defaultModule + "_serviceaccount.yaml"
+	ServiceAccountName = TemplatesDir + sep + moduleNameTemplate + "_serviceaccount.yaml"
 	// HorizontalPodAutoscalerName is the name of the example hpa file.
-	HorizontalPodAutoscalerName = TemplatesDir + sep + defaultModule + "_hpa.yaml"
+	HorizontalPodAutoscalerName = TemplatesDir + sep + moduleNameTemplate + "_hpa.yaml"
 	// NotesName is the name of the example NOTES.txt file.
 	NotesName = TemplatesDir + sep + "NOTES.txt"
 	// HelpersName is the name of the example helpers file.
-	HelpersName = TemplatesDir + sep + "_" + defaultModule + "_helpers.tpl"
+	HelpersName = TemplatesDir + sep + "_" + moduleNameTemplate + "_helpers.tpl"
 	// TestConnectionName is the name of the example test file.
-	TestConnectionName = TemplatesTestsDir + sep + defaultModule + "_test-connection.yaml"
+	TestConnectionName = TemplatesTestsDir + sep + moduleNameTemplate + "_test-connection.yaml"
 )
+
+func getIngressFileName(module string) string {
+	return TemplatesDir + sep + moduleNameTemplate + "_ingress.yaml"
+}
 
 // maxChartNameLength is lower than the limits we know of with certain file systems,
 // and with certain Kubernetes fields.
@@ -594,6 +598,12 @@ func Create(name, dir string) (string, error) {
 
 	var module = "main"
 
+	// if we are "inside" a helm chart we generate a module with the name from args
+	if _, err := os.Stat(ValuesfileName); err == nil {
+		module = name
+		cdir = ""
+	}
+
 	files := []struct {
 		path    string
 		content []byte
@@ -605,7 +615,7 @@ func Create(name, dir string) (string, error) {
 		},
 		{
 			// values.yaml
-			path:    filepath.Join(cdir, ValuesfileName),
+			path:    filepath.Join(cdir, transformModuleName(ValuesfileName, module)),
 			content: transform(defaultValues, name, module),
 		},
 		{
@@ -615,42 +625,42 @@ func Create(name, dir string) (string, error) {
 		},
 		{
 			// ingress.yaml
-			path:    filepath.Join(cdir, IngressFileName),
+			path:    filepath.Join(cdir, transformModuleName(IngressFileName, module)),
 			content: transform(defaultIngress, name, module),
 		},
 		{
 			// deployment.yaml
-			path:    filepath.Join(cdir, DeploymentName),
+			path:    filepath.Join(cdir, transformModuleName(DeploymentName, module)),
 			content: transform(defaultDeployment, name, module),
 		},
 		{
 			// service.yaml
-			path:    filepath.Join(cdir, ServiceName),
+			path:    filepath.Join(cdir, transformModuleName(ServiceName, module)),
 			content: transform(defaultService, name, module),
 		},
 		{
 			// serviceaccount.yaml
-			path:    filepath.Join(cdir, ServiceAccountName),
+			path:    filepath.Join(cdir, transformModuleName(ServiceAccountName, module)),
 			content: transform(defaultServiceAccount, name, module),
 		},
 		{
 			// hpa.yaml
-			path:    filepath.Join(cdir, HorizontalPodAutoscalerName),
+			path:    filepath.Join(cdir, transformModuleName(HorizontalPodAutoscalerName, module)),
 			content: transform(defaultHorizontalPodAutoscaler, name, module),
 		},
 		{
 			// NOTES.txt
-			path:    filepath.Join(cdir, NotesName),
+			path:    filepath.Join(cdir, transformModuleName(NotesName, module)),
 			content: transform(defaultNotes, name, module),
 		},
 		{
 			// _helpers.tpl
-			path:    filepath.Join(cdir, HelpersName),
+			path:    filepath.Join(cdir, transformModuleName(HelpersName, module)),
 			content: transform(defaultHelpers, name, module),
 		},
 		{
 			// test-connection.yaml
-			path:    filepath.Join(cdir, TestConnectionName),
+			path:    filepath.Join(cdir, transformModuleName(TestConnectionName, module)),
 			content: transform(defaultTestConnection, name, module),
 		},
 	}
@@ -675,6 +685,10 @@ func Create(name, dir string) (string, error) {
 // a given key with the replacement string
 func transform(src, chartname string, module string) []byte {
 	return []byte(strings.ReplaceAll(src, "<MODULE_NAME>", module))
+}
+
+func transformModuleName(src, moduleName string) string {
+	return strings.ReplaceAll(src, moduleNameTemplate, moduleName+"_")
 }
 
 func writeFile(name string, content []byte) error {
